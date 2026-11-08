@@ -4,7 +4,9 @@ This monorepo contains the React client and Express server for the final-year en
 
 ## Development
 
-Install dependencies in the root, client, and server directories, then run:
+Install dependencies in the root, client, and server directories. Copy
+`server/.env.example` to `server/.env` and fill in all required values, then
+run:
 
 ```bash
 npm run dev
