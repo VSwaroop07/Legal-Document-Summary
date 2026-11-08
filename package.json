@@ -1,0 +1,12 @@
+{
+  "name": "legal-summarizer",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "client": "npm --prefix client run dev",
+    "server": "npm --prefix server run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}
