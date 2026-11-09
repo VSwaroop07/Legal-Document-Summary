@@ -4,6 +4,7 @@ import client from '../api/client'
 import Alert from '../components/Alert'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
+import ExplainModal from '../components/ExplainModal'
 import Spinner from '../components/Spinner'
 import StatusBadge from '../components/StatusBadge'
 
@@ -37,7 +38,7 @@ function SummaryValue({ value }) {
   return <p className={isNotStated(value) ? 'text-slate-400' : ''}>{value || NOT_STATED}</p>
 }
 
-function SummaryTab({ document, onSummaryUpdated }) {
+function SummaryTab({ document, onSummaryUpdated, onExplain }) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -80,7 +81,17 @@ function SummaryTab({ document, onSummaryUpdated }) {
         <Button variant="secondary" onClick={copySummary}>{copied ? 'Copied' : 'Copy summary'}</Button>
         <Button onClick={() => generateSummary(true)} loading={isGenerating}>Regenerate</Button>
       </div>
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div
+        className="relative mt-5 grid gap-4 lg:grid-cols-2"
+        onMouseUp={(event) => {
+          const selection = window.getSelection()
+          const selectedText = selection?.toString().trim()
+          if (selectedText && event.currentTarget.contains(selection.anchorNode)) {
+            const rect = selection.getRangeAt(0).getBoundingClientRect()
+            onExplain(selectedText, { top: rect.bottom + 8, left: rect.left })
+          }
+        }}
+      >
         <DetailCard title="Case background"><SummaryValue value={summary.caseBackground} /></DetailCard>
         <DetailCard title="Legal issues"><SummaryValue value={summary.legalIssues} /></DetailCard>
         <DetailCard title="Arguments">
@@ -264,6 +275,8 @@ function DocumentDetails() {
   const [activeTab, setActiveTab] = useState('summary')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [explanationRequest, setExplanationRequest] = useState(null)
+  const [selectionPosition, setSelectionPosition] = useState(null)
 
   useEffect(() => {
     async function loadDocument() {
@@ -292,6 +305,12 @@ function DocumentDetails() {
           <h1 className="mt-3 truncate text-3xl font-bold tracking-tight text-slate-900">{document.title}</h1>
           <p className="mt-2 text-sm text-slate-500">Uploaded {new Date(document.createdAt).toLocaleDateString()}</p>
         </div>
+        <Button
+          variant="secondary"
+          onClick={() => setExplanationRequest({ type: 'document', id })}
+        >
+          Explain with AI
+        </Button>
       </div>
       <div className="mt-6 flex gap-6 border-b border-slate-200">
         {['summary', 'chat'].map((tab) => (
@@ -301,8 +320,28 @@ function DocumentDetails() {
         ))}
       </div>
       <div className="mt-6">
-        {activeTab === 'summary' ? <SummaryTab document={document} onSummaryUpdated={(summary) => setDocument({ ...document, summary })} /> : <ChatTab documentId={id} />}
+        {activeTab === 'summary' ? (
+          <SummaryTab
+            document={document}
+            onSummaryUpdated={(summary) => setDocument({ ...document, summary })}
+            onExplain={(selectedText, position) => {
+              setExplanationRequest({ type: 'document', id, selectedText })
+              setSelectionPosition(position)
+            }}
+          />
+        ) : <ChatTab documentId={id} />}
       </div>
+      {selectionPosition && explanationRequest ? (
+        <button
+          type="button"
+          className="fixed z-40 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white shadow-lg"
+          style={{ top: selectionPosition.top, left: selectionPosition.left }}
+          onClick={() => setSelectionPosition(null)}
+        >
+          Explain
+        </button>
+      ) : null}
+      {explanationRequest && !selectionPosition ? <ExplainModal request={explanationRequest} onClose={() => setExplanationRequest(null)} /> : null}
       <p className="mt-10 text-center text-xs text-slate-400">AI-generated output is for understanding only and is not legal advice.</p>
     </div>
   )

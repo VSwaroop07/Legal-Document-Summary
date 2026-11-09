@@ -8,6 +8,7 @@ import healthRoutes from './routes/healthRoutes.js'
 import authRoutes from './routes/authRoutes.js'
 import documentRoutes from './routes/documentRoutes.js'
 import newsRoutes from './routes/newsRoutes.js'
+import explainRoutes from './routes/explainRoutes.js'
 import { notFound } from './middleware/notFound.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
@@ -30,6 +31,7 @@ app.use('/api/health', healthRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/news', newsRoutes)
+app.use('/api/explain', explainRoutes)
 app.use(notFound)
 app.use(errorHandler)
 

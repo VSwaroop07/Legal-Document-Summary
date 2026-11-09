@@ -5,6 +5,9 @@ import Alert from '../components/Alert'
 import Button from '../components/Button'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
+import ExplainModal from '../components/ExplainModal'
+import NewsCard from '../components/NewsCard'
+import NewsSkeleton from '../components/NewsSkeleton'
 import Spinner from '../components/Spinner'
 import StatusBadge from '../components/StatusBadge'
 
@@ -19,6 +22,10 @@ function Dashboard() {
   const [dragActive, setDragActive] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [latestNews, setLatestNews] = useState([])
+  const [isNewsLoading, setIsNewsLoading] = useState(true)
+  const [newsError, setNewsError] = useState('')
+  const [articleToExplain, setArticleToExplain] = useState(null)
   const inputRef = useRef(null)
 
   const loadDocuments = useCallback(async () => {
@@ -36,6 +43,20 @@ function Dashboard() {
   useEffect(() => {
     loadDocuments()
   }, [loadDocuments])
+
+  useEffect(() => {
+    async function loadLatestNews() {
+      try {
+        const response = await client.get('/news', { params: { page: 1, limit: 3 } })
+        setLatestNews(response.data.data.articles)
+      } catch (requestError) {
+        setNewsError(requestError.response?.data?.message || 'Unable to load the latest legal news.')
+      } finally {
+        setIsNewsLoading(false)
+      }
+    }
+    loadLatestNews()
+  }, [])
 
   const filteredDocuments = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -179,6 +200,32 @@ function Dashboard() {
           ))}
         </div>
       ) : null}
+
+      <section className="mt-12">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-widest text-teal-700">Stay informed</p>
+            <h2 className="mt-2 text-xl font-bold text-slate-900">Latest legal news</h2>
+          </div>
+          <Link to="/news" className="text-sm font-semibold text-teal-700 hover:text-teal-800">View all news →</Link>
+        </div>
+        {newsError ? <div className="mt-5"><Alert>{newsError}</Alert></div> : null}
+        {isNewsLoading ? (
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {Array.from({ length: 3 }, (_, index) => <NewsSkeleton key={index} compact />)}
+          </div>
+        ) : null}
+        {!isNewsLoading && !latestNews.length && !newsError ? (
+          <div className="mt-5"><EmptyState title="No legal news yet" description="The latest curated legal updates will appear here." /></div>
+        ) : null}
+        {!isNewsLoading && latestNews.length ? (
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {latestNews.map((article) => <NewsCard key={article._id || article.url} article={article} compact onExplain={setArticleToExplain} />)}
+          </div>
+        ) : null}
+      </section>
+
+      {articleToExplain ? <ExplainModal request={{ type: 'news', id: articleToExplain._id }} onClose={() => setArticleToExplain(null)} /> : null}
 
       {documentToDelete ? (
         <ConfirmDialog
