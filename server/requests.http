@@ -1,0 +1,29 @@
+@baseUrl = http://localhost:5000/api
+@token = paste-token-here
+
+### Register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Demo User",
+  "email": "demo@example.com",
+  "password": "password123"
+}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@example.com",
+  "password": "password123"
+}
+
+### Current user
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+### Generate document summary
+POST {{baseUrl}}/documents/document-id/summarize
+Authorization: Bearer {{token}}

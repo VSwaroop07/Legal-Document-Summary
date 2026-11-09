@@ -5,6 +5,8 @@ import morgan from 'morgan'
 import rateLimit from 'express-rate-limit'
 import { env } from './config/env.js'
 import healthRoutes from './routes/healthRoutes.js'
+import authRoutes from './routes/authRoutes.js'
+import documentRoutes from './routes/documentRoutes.js'
 import { notFound } from './middleware/notFound.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
@@ -24,6 +26,8 @@ app.use(
 )
 
 app.use('/api/health', healthRoutes)
+app.use('/api/auth', authRoutes)
+app.use('/api/documents', documentRoutes)
 app.use(notFound)
 app.use(errorHandler)
 

@@ -1,0 +1,170 @@
+import mongoose from 'mongoose'
+import Document from '../models/Document.js'
+import Chunk from '../models/Chunk.js'
+import ChatSession from '../models/ChatSession.js'
+import { extractPdfPages } from '../services/pdfService.js'
+import { cleanPages } from '../services/textCleaner.js'
+import { createChunks } from '../services/chunker.js'
+import { extractMetadata } from '../services/metadataService.js'
+import { embedTexts } from '../services/embeddingService.js'
+import { searchChunks } from '../services/vectorSearchService.js'
+import { summarizeDocument as generateSummary } from '../services/summaryService.js'
+import { ApiError } from '../utils/ApiError.js'
+import { sendSuccess } from '../utils/sendSuccess.js'
+
+export async function uploadDocument(req, res) {
+  if (!req.file) {
+    throw new ApiError(400, 'A PDF file is required')
+  }
+
+  const header = req.file.buffer.subarray(0, 4).toString('ascii')
+  if (header !== '%PDF') {
+    throw new ApiError(400, 'The uploaded file is not a valid PDF')
+  }
+
+  const document = await Document.create({
+    user: req.user._id,
+    title: req.file.originalname,
+    originalName: req.file.originalname,
+    status: 'processing',
+  })
+
+  try {
+    const extractedPages = await extractPdfPages(req.file.buffer)
+    const cleanedPages = cleanPages(extractedPages)
+    const metadata = extractMetadata(extractedPages)
+    const chunks = await createChunks(cleanedPages)
+
+    if (!chunks.length) {
+      throw new ApiError(422, 'No readable text was found in this PDF')
+    }
+
+    let vectors
+    try {
+      vectors = await embedTexts(chunks.map((chunk) => chunk.text))
+    } catch (error) {
+      throw new ApiError(502, `Embedding failed: ${error.message}`)
+    }
+
+    if (vectors.length !== chunks.length || vectors.some((vector) => !Array.isArray(vector) || vector.length === 0)) {
+      throw new ApiError(502, 'Embedding failed: incomplete vectors were returned')
+    }
+
+    await Chunk.insertMany(chunks.map((chunk, index) => ({
+      ...chunk,
+      embedding: vectors[index],
+      document: document._id,
+      user: req.user._id,
+    })))
+
+    document.title = metadata.title || req.file.originalname
+    document.pageCount = metadata.pageCount
+    document.metadata = metadata
+    document.status = 'ready'
+    document.errorMessage = ''
+    await document.save()
+
+    return sendSuccess(res, document, 201)
+  } catch (error) {
+    await Chunk.deleteMany({ document: document._id, user: req.user._id })
+    document.status = 'failed'
+    document.errorMessage = error.message
+    await document.save()
+    throw error
+  }
+}
+
+export async function listDocuments(req, res) {
+  const documents = await Document.find({ user: req.user._id }).sort({ createdAt: -1 })
+  return sendSuccess(res, documents)
+}
+
+export async function getDocument(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  const document = await Document.findOne({ _id: req.params.id, user: req.user._id })
+  if (!document) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  return sendSuccess(res, document)
+}
+
+export async function deleteDocument(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  const document = await Document.findOne({ _id: req.params.id, user: req.user._id })
+  if (!document) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  await Promise.all([
+    Chunk.deleteMany({ document: document._id, user: req.user._id }),
+    ChatSession.deleteMany({ document: document._id, user: req.user._id }),
+    document.deleteOne(),
+  ])
+
+  return sendSuccess(res, { message: 'Document deleted successfully' })
+}
+
+export async function searchDocument(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  const query = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+  if (!query) {
+    throw new ApiError(400, 'Search query is required')
+  }
+
+  const document = await Document.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  }).select('_id')
+
+  if (!document) {
+    return sendSuccess(res, [])
+  }
+
+  const matches = await searchChunks({
+    userId: req.user._id,
+    documentId: document._id,
+    query,
+  })
+
+  return sendSuccess(res, matches)
+}
+
+export async function summarizeDocument(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  const document = await Document.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  })
+
+  if (!document) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  const force = req.query.force === 'true'
+  const hasSavedSummary = document.summary
+    && typeof document.summary === 'object'
+    && Object.keys(document.summary).length > 0
+
+  if (hasSavedSummary && !force) {
+    return sendSuccess(res, document.summary)
+  }
+
+  const summary = await generateSummary(document._id, req.user._id)
+  document.summary = summary
+  await document.save()
+
+  return sendSuccess(res, summary)
+}
