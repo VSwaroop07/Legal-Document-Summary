@@ -5,7 +5,7 @@ import { ApiError } from '../utils/ApiError.js'
 import { invokeAi } from '../utils/ai.js'
 import { logger } from '../utils/logger.js'
 
-const explanationSchema = z.object({
+export const explanationSchema = z.object({
   whatHappened: z.string(),
   whyItMatters: z.string(),
   affectedParties: z.array(z.string()),

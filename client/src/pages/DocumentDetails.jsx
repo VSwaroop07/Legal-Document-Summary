@@ -159,7 +159,7 @@ function Sources({ sources, highlightedSource, onHighlight }) {
   )
 }
 
-function ChatTab({ documentId }) {
+export function ChatTab({ documentId }) {
   const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [isLoading, setIsLoading] = useState(true)

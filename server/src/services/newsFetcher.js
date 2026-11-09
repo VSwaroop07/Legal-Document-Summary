@@ -95,6 +95,10 @@ export async function fetchNewsArticles() {
     }
   })
 
+  return deduplicateArticles(articles)
+}
+
+export function deduplicateArticles(articles) {
   const seenUrls = new Set()
   const seenTitles = new Set()
   return articles.filter((article) => {

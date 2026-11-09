@@ -9,7 +9,7 @@ import { logger } from '../utils/logger.js'
 const NOT_STATED = 'Not stated in the document'
 const CHUNKS_PER_GROUP = 8
 
-const summarySchema = z.object({
+export const summarySchema = z.object({
   caseBackground: z.string(),
   legalIssues: z.array(z.string()),
   arguments: z.object({
