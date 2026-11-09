@@ -7,6 +7,7 @@ import { env } from './config/env.js'
 import healthRoutes from './routes/healthRoutes.js'
 import authRoutes from './routes/authRoutes.js'
 import documentRoutes from './routes/documentRoutes.js'
+import newsRoutes from './routes/newsRoutes.js'
 import { notFound } from './middleware/notFound.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
@@ -28,6 +29,7 @@ app.use(
 app.use('/api/health', healthRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/documents', documentRoutes)
+app.use('/api/news', newsRoutes)
 app.use(notFound)
 app.use(errorHandler)
 

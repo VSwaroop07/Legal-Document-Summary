@@ -27,3 +27,32 @@ Authorization: Bearer {{token}}
 ### Generate document summary
 POST {{baseUrl}}/documents/document-id/summarize
 Authorization: Bearer {{token}}
+
+### Ask a document question
+POST {{baseUrl}}/documents/document-id/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "question": "What did the court decide?"
+}
+
+### Get document chat history
+GET {{baseUrl}}/documents/document-id/chat
+Authorization: Bearer {{token}}
+
+### Clear document chat history
+DELETE {{baseUrl}}/documents/document-id/chat
+Authorization: Bearer {{token}}
+
+### List legal news
+GET {{baseUrl}}/news?page=1&limit=20&category=Criminal%20Law&q=court
+Authorization: Bearer {{token}}
+
+### News categories
+GET {{baseUrl}}/news/categories
+Authorization: Bearer {{token}}
+
+### Refresh legal news
+POST {{baseUrl}}/news/refresh
+Authorization: Bearer {{token}}

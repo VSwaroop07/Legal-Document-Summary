@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 
 const sourceSchema = new mongoose.Schema(
   {
+    citation: { type: Number },
     chunkIndex: { type: Number, required: true },
     pageNumber: { type: Number },
     snippet: { type: String, required: true },

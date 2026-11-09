@@ -9,6 +9,8 @@ import { extractMetadata } from '../services/metadataService.js'
 import { embedTexts } from '../services/embeddingService.js'
 import { searchChunks } from '../services/vectorSearchService.js'
 import { summarizeDocument as generateSummary } from '../services/summaryService.js'
+import { answerQuestion } from '../services/ragService.js'
+import { z } from 'zod'
 import { ApiError } from '../utils/ApiError.js'
 import { sendSuccess } from '../utils/sendSuccess.js'
 
@@ -167,4 +169,68 @@ export async function summarizeDocument(req, res) {
   await document.save()
 
   return sendSuccess(res, summary)
+}
+
+const chatQuestionSchema = z.object({
+  question: z.string().trim().min(1, 'Question is required').max(500, 'Question must be 500 characters or fewer'),
+})
+
+async function findOwnedDocument(documentId, userId) {
+  if (!mongoose.isValidObjectId(documentId)) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  const document = await Document.findOne({ _id: documentId, user: userId }).select('_id')
+  if (!document) {
+    throw new ApiError(404, 'Document not found')
+  }
+
+  return document
+}
+
+export async function chatWithDocument(req, res) {
+  const document = await findOwnedDocument(req.params.id, req.user._id)
+  const { question } = chatQuestionSchema.parse(req.body)
+  const chatSession = await ChatSession.findOne({
+    document: document._id,
+    user: req.user._id,
+  })
+  const history = chatSession?.messages || []
+  const result = await answerQuestion({
+    userId: req.user._id,
+    documentId: document._id,
+    question,
+    history,
+  })
+
+  const session = chatSession || new ChatSession({
+    document: document._id,
+    user: req.user._id,
+    messages: [],
+  })
+  session.messages.push({ role: 'user', content: question, sources: [] })
+  session.messages.push({ role: 'assistant', content: result.answer, sources: result.sources })
+  await session.save()
+
+  return sendSuccess(res, result)
+}
+
+export async function getChatHistory(req, res) {
+  const document = await findOwnedDocument(req.params.id, req.user._id)
+  const chatSession = await ChatSession.findOne({
+    document: document._id,
+    user: req.user._id,
+  }).select('messages')
+
+  return sendSuccess(res, chatSession?.messages || [])
+}
+
+export async function clearChatHistory(req, res) {
+  const document = await findOwnedDocument(req.params.id, req.user._id)
+  await ChatSession.updateOne(
+    { document: document._id, user: req.user._id },
+    { $set: { messages: [] } },
+  )
+
+  return sendSuccess(res, { message: 'Chat history cleared successfully' })
 }

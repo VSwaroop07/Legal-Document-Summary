@@ -11,6 +11,10 @@ const envSchema = z.object({
   OPENAI_CHAT_MODEL: z.string().min(1),
   OPENAI_EMBEDDING_MODEL: z.string().min(1),
   NEWS_API_KEY: z.string().min(1),
+  NEWS_JOB_ENABLED: z.preprocess(
+    (value) => value === undefined ? false : value,
+    z.union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')]),
+  ),
 })
 
 const result = envSchema.safeParse(process.env)
