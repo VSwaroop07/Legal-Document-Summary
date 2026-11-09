@@ -3,6 +3,7 @@ import NewsArticle from '../src/models/NewsArticle.js'
 import { env } from '../src/config/env.js'
 import { fetchNewsArticles } from '../src/services/newsFetcher.js'
 import { summarizeNewsArticles } from '../src/services/newsAiService.js'
+import { logger } from '../src/utils/logger.js'
 
 const MAX_NEW_ARTICLES_PER_RUN = 20
 
@@ -23,7 +24,7 @@ export async function runNewsJob() {
     .slice(0, MAX_NEW_ARTICLES_PER_RUN)
 
   if (!newArticles.length) {
-    console.log('[news] no new articles')
+    logger.info('News job found no new articles')
     return { fetched: fetchedArticles.length, saved: 0 }
   }
 
@@ -33,18 +34,18 @@ export async function runNewsJob() {
     ...summaries[index],
   })), { ordered: false })
 
-  console.log(`[news] saved ${newArticles.length} articles`)
+  logger.info('News job saved articles', { count: newArticles.length })
   return { fetched: fetchedArticles.length, saved: newArticles.length }
 }
 
 export function startNewsJob() {
   if (!env.NEWS_JOB_ENABLED) {
-    console.log('[news] scheduled job disabled')
+    logger.info('News job disabled')
     return null
   }
 
-  runNewsJob().catch((error) => console.error('[news] initial run failed:', error.message))
+  runNewsJob().catch(() => logger.error('News initial run failed'))
   return cron.schedule('0 */3 * * *', () => {
-    runNewsJob().catch((error) => console.error('[news] scheduled run failed:', error.message))
+    runNewsJob().catch(() => logger.error('News scheduled run failed'))
   })
 }

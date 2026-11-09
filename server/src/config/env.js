@@ -15,6 +15,8 @@ const envSchema = z.object({
     (value) => value === undefined ? false : value,
     z.union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')]),
   ),
+  OPENAI_DAILY_CALL_LIMIT: z.coerce.number().int().positive().default(20),
+  OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 })
 
 const result = envSchema.safeParse(process.env)

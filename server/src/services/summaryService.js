@@ -3,6 +3,8 @@ import { z } from 'zod'
 import Chunk from '../models/Chunk.js'
 import { env } from '../config/env.js'
 import { ApiError } from '../utils/ApiError.js'
+import { invokeAi } from '../utils/ai.js'
+import { logger } from '../utils/logger.js'
 
 const NOT_STATED = 'Not stated in the document'
 const CHUNKS_PER_GROUP = 8
@@ -30,14 +32,15 @@ const model = new ChatOpenAI({
   apiKey: env.OPENAI_API_KEY,
   model: env.OPENAI_CHAT_MODEL,
   temperature: 0,
+  timeout: env.OPENAI_TIMEOUT_MS,
 })
 
 function logUsage(label, response) {
   const usage = response?.usage_metadata || response?.response_metadata?.tokenUsage
   if (usage) {
-    console.log(`[summary:${label}] token usage:`, usage)
+    logger.info(`Summary ${label} completed`, { usage })
   } else {
-    console.log(`[summary:${label}] token usage unavailable`)
+    logger.info(`Summary ${label} completed`)
   }
 }
 
@@ -59,7 +62,7 @@ function formatChunks(chunks) {
 }
 
 async function createPartialNote(chunks, groupNumber) {
-  const response = await model.invoke([
+  const response = await invokeAi('summary map', () => model.invoke([
     { role: 'system', content: systemPrompt },
     {
       role: 'user',
@@ -70,7 +73,7 @@ Do not infer missing information.
 Group ${groupNumber}:
 ${formatChunks(chunks)}`,
     },
-  ])
+  ]))
   logUsage(`map-${groupNumber}`, response)
   return messageText(response)
 }
@@ -83,7 +86,7 @@ async function combineNotes(notes, attempt = 0) {
   })
 
   try {
-    const response = await structuredModel.invoke([
+    const response = await invokeAi('summary reduce', () => structuredModel.invoke([
       { role: 'system', content: systemPrompt },
       {
         role: 'user',
@@ -95,13 +98,13 @@ If the notes do not state a field, use "${NOT_STATED}" (and for an absent list, 
 Partial notes:
 ${notes.join('\n\n--- NEXT GROUP ---\n\n')}`,
       },
-    ])
+    ]))
 
     logUsage('reduce', response.raw)
     return summarySchema.parse(response.parsed)
   } catch (error) {
     if (attempt === 0) {
-      console.warn('[summary:reduce] structured output parsing failed; retrying once')
+      logger.warn('Summary structured output parsing failed; retrying')
       return combineNotes(notes, 1)
     }
 

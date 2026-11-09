@@ -13,6 +13,7 @@ import { answerQuestion } from '../services/ragService.js'
 import { z } from 'zod'
 import { ApiError } from '../utils/ApiError.js'
 import { sendSuccess } from '../utils/sendSuccess.js'
+import { logger } from '../utils/logger.js'
 
 export async function uploadDocument(req, res) {
   if (!req.file) {
@@ -45,7 +46,8 @@ export async function uploadDocument(req, res) {
     try {
       vectors = await embedTexts(chunks.map((chunk) => chunk.text))
     } catch (error) {
-      throw new ApiError(502, `Embedding failed: ${error.message}`)
+      logger.error('Document embedding failed', { documentId: document._id.toString() })
+      throw new ApiError(502, 'Document embedding failed. Please try again.')
     }
 
     if (vectors.length !== chunks.length || vectors.some((vector) => !Array.isArray(vector) || vector.length === 0)) {
@@ -70,7 +72,9 @@ export async function uploadDocument(req, res) {
   } catch (error) {
     await Chunk.deleteMany({ document: document._id, user: req.user._id })
     document.status = 'failed'
-    document.errorMessage = error.message
+    document.errorMessage = error instanceof ApiError
+      ? error.message
+      : 'Document processing failed. Please try again.'
     await document.save()
     throw error
   }
@@ -118,10 +122,9 @@ export async function searchDocument(req, res) {
     throw new ApiError(404, 'Document not found')
   }
 
-  const query = typeof req.query.q === 'string' ? req.query.q.trim() : ''
-  if (!query) {
-    throw new ApiError(400, 'Search query is required')
-  }
+  const query = z.object({
+    q: z.string().trim().min(1, 'Search query is required').max(300),
+  }).parse(req.query).q
 
   const document = await Document.findOne({
     _id: req.params.id,
@@ -155,7 +158,9 @@ export async function summarizeDocument(req, res) {
     throw new ApiError(404, 'Document not found')
   }
 
-  const force = req.query.force === 'true'
+  const force = z.object({
+    force: z.enum(['true', 'false']).default('false'),
+  }).parse(req.query).force === 'true'
   const hasSavedSummary = document.summary
     && typeof document.summary === 'object'
     && Object.keys(document.summary).length > 0

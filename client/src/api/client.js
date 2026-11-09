@@ -18,6 +18,8 @@ client.interceptors.response.use(
     if (error.response?.status === 401 && window.location.pathname !== '/login') {
       localStorage.removeItem('legal_summarizer_token')
       window.location.assign('/login')
+    } else if (error.response?.data?.message) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: error.response.data.message }))
     }
     return Promise.reject(error)
   },

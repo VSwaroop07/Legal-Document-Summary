@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit'
 import { authenticate } from '../middleware/auth.js'
 import { uploadPdf } from '../middleware/upload.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
+import { aiUsageLimit } from '../middleware/aiUsageLimit.js'
 import {
   deleteDocument,
   getDocument,
@@ -25,11 +26,11 @@ const chatRateLimit = rateLimit({
 })
 
 router.use(authenticate)
-router.post('/', uploadPdf, asyncHandler(uploadDocument))
+router.post('/', aiUsageLimit, uploadPdf, asyncHandler(uploadDocument))
 router.get('/', asyncHandler(listDocuments))
 router.get('/:id/search', asyncHandler(searchDocument))
-router.post('/:id/summarize', asyncHandler(summarizeDocument))
-router.post('/:id/chat', chatRateLimit, asyncHandler(chatWithDocument))
+router.post('/:id/summarize', aiUsageLimit, chatRateLimit, asyncHandler(summarizeDocument))
+router.post('/:id/chat', aiUsageLimit, chatRateLimit, asyncHandler(chatWithDocument))
 router.get('/:id/chat', asyncHandler(getChatHistory))
 router.delete('/:id/chat', asyncHandler(clearChatHistory))
 router.get('/:id', asyncHandler(getDocument))

@@ -1,5 +1,6 @@
 import { OpenAIEmbeddings } from '@langchain/openai'
 import { env } from '../config/env.js'
+import { invokeAi } from '../utils/ai.js'
 
 const BATCH_SIZE = 50
 const MAX_RETRIES = 3
@@ -7,6 +8,7 @@ const MAX_RETRIES = 3
 const embeddings = new OpenAIEmbeddings({
   apiKey: env.OPENAI_API_KEY,
   model: env.OPENAI_EMBEDDING_MODEL,
+  timeout: env.OPENAI_TIMEOUT_MS,
 })
 
 function isRateLimitError(error) {
@@ -23,7 +25,7 @@ function wait(milliseconds) {
 async function embedBatchWithRetry(texts) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     try {
-      return await embeddings.embedDocuments(texts)
+      return await invokeAi('document embeddings', () => embeddings.embedDocuments(texts))
     } catch (error) {
       if (!isRateLimitError(error) || attempt === MAX_RETRIES) {
         throw error
@@ -49,5 +51,5 @@ export async function embedTexts(texts) {
 }
 
 export async function embedQuery(query) {
-  return embeddings.embedQuery(query)
+  return invokeAi('query embedding', () => embeddings.embedQuery(query))
 }

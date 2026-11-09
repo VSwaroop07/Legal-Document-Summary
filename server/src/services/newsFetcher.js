@@ -2,6 +2,7 @@ import axios from 'axios'
 import Parser from 'rss-parser'
 import { env } from '../config/env.js'
 import { newsSources } from '../config/newsSources.js'
+import { logger } from '../utils/logger.js'
 
 const rssParser = new Parser()
 const NEWS_AGE_MS = 7 * 24 * 60 * 60 * 1000
@@ -31,11 +32,18 @@ function cleanArticle(article) {
   const title = stripHtml(article.title)
   const url = article.url?.trim()
   if (!title || !url) return null
+  let parsedUrl
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    return null
+  }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) return null
 
   const publishedAt = article.publishedAt ? new Date(article.publishedAt) : null
   const normalisedArticle = {
     title,
-    url,
+    url: parsedUrl.toString(),
     source: stripHtml(article.source) || 'Unknown source',
     publishedAt: publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : null,
     content: stripHtml(article.content || title),
@@ -83,7 +91,7 @@ export async function fetchNewsArticles() {
       articles.push(...result.value)
     } else {
       const source = index === 0 ? 'News API' : newsSources.rssFeeds[index - 1].name
-      console.error(`News source failed (${source}):`, result.reason.message)
+      logger.error('News source failed', { source })
     }
   })
 

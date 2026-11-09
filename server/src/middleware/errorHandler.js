@@ -1,5 +1,6 @@
 import multer from 'multer'
 import { z } from 'zod'
+import { logger } from '../utils/logger.js'
 
 export function errorHandler(error, req, res, next) {
   if (res.headersSent) {
@@ -27,7 +28,7 @@ export function errorHandler(error, req, res, next) {
   }
 
   if (statusCode >= 500) {
-    console.error(error)
+    logger.error('Request failed', { statusCode, errorName: error.name })
     message = 'Internal server error'
   }
 

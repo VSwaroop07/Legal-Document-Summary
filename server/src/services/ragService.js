@@ -3,11 +3,14 @@ import { z } from 'zod'
 import { env } from '../config/env.js'
 import { searchChunks } from './vectorSearchService.js'
 import { ApiError } from '../utils/ApiError.js'
+import { invokeAi } from '../utils/ai.js'
+import { logger } from '../utils/logger.js'
 
 const model = new ChatOpenAI({
   apiKey: env.OPENAI_API_KEY,
   model: env.OPENAI_CHAT_MODEL,
   temperature: 0,
+  timeout: env.OPENAI_TIMEOUT_MS,
 })
 
 const rewriteSchema = z.object({
@@ -40,9 +43,9 @@ function messageText(message) {
 function logUsage(label, response) {
   const usage = response?.usage_metadata || response?.response_metadata?.tokenUsage
   if (usage) {
-    console.log(`[rag:${label}] token usage:`, usage)
+    logger.info(`RAG ${label} completed`, { usage })
   } else {
-    console.log(`[rag:${label}] token usage unavailable`)
+    logger.info(`RAG ${label} completed`)
   }
 }
 
@@ -51,7 +54,7 @@ async function rewriteQuestion(question, history) {
     return question
   }
 
-  const response = await model.withStructuredOutput(rewriteSchema, {
+  const response = await invokeAi('rag rewrite', () => model.withStructuredOutput(rewriteSchema, {
     name: 'standalone_question',
     strict: true,
     includeRaw: true,
@@ -70,7 +73,7 @@ ${history.map((message) => `${message.role}: ${message.content}`).join('\n')}
 Latest question:
 ${question}`,
     },
-  ])
+  ]))
 
   logUsage('rewrite', response.raw)
   return rewriteSchema.parse(response.parsed).standaloneQuestion
@@ -111,7 +114,7 @@ export async function answerQuestion({ userId, documentId, question, history = [
     return { answer: 'The document does not say.', sources: [] }
   }
 
-  const response = await model.withStructuredOutput(answerSchema, {
+  const response = await invokeAi('rag answer', () => model.withStructuredOutput(answerSchema, {
     name: 'document_question_answer',
     strict: true,
     includeRaw: true,
@@ -128,7 +131,7 @@ ${formatExcerpts(chunks)}
 Question:
 ${standaloneQuestion}`,
     },
-  ])
+  ]))
 
   logUsage('answer', response.raw)
   const answer = answerSchema.parse(response.parsed).answer

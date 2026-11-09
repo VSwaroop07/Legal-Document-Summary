@@ -3,13 +3,20 @@ import { categories } from '../services/newsAiService.js'
 import { runNewsJob } from '../../jobs/newsJob.js'
 import { ApiError } from '../utils/ApiError.js'
 import { sendSuccess } from '../utils/sendSuccess.js'
+import { z } from 'zod'
+
+const querySchema = z.object({
+  category: z.string().trim().max(80).optional(),
+  q: z.string().trim().max(200).optional(),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+})
 
 export async function listNews(req, res) {
-  const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1)
-  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 50)
+  const { page, limit, category, q } = querySchema.parse(req.query)
   const filter = {}
-  if (req.query.category) filter.category = req.query.category
-  const search = String(req.query.q || '').trim()
+  if (category) filter.category = category
+  const search = q || ''
   if (search) filter.$text = { $search: search }
 
   const [articles, total] = await Promise.all([

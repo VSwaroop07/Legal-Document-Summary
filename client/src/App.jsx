@@ -6,6 +6,7 @@ import DocumentDetails from './pages/DocumentDetails'
 import Login from './pages/Login'
 import News from './pages/News'
 import Register from './pages/Register'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -20,7 +21,7 @@ function App() {
         </Route>
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }

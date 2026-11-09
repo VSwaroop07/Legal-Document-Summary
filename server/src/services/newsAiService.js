@@ -1,6 +1,8 @@
 import { ChatOpenAI } from '@langchain/openai'
 import { z } from 'zod'
 import { env } from '../config/env.js'
+import { invokeAi } from '../utils/ai.js'
+import { logger } from '../utils/logger.js'
 
 const categories = [
   'Constitutional Law',
@@ -27,6 +29,7 @@ const model = new ChatOpenAI({
   apiKey: env.OPENAI_API_KEY,
   model: env.OPENAI_CHAT_MODEL,
   temperature: 0,
+  timeout: env.OPENAI_TIMEOUT_MS,
 })
 
 export async function summarizeNewsArticles(articles, batchSize = 5) {
@@ -35,7 +38,7 @@ export async function summarizeNewsArticles(articles, batchSize = 5) {
   for (let index = 0; index < articles.length; index += batchSize) {
     const batch = articles.slice(index, index + batchSize)
     try {
-      const response = await model.withStructuredOutput(resultSchema, {
+      const response = await invokeAi('news summary', () => model.withStructuredOutput(resultSchema, {
         name: 'news_article_summaries',
         strict: true,
         includeRaw: true,
@@ -53,14 +56,14 @@ Do not provide legal advice.`,
             `ARTICLE ${batchIndex + 1}\nTitle: ${article.title}\nContent: ${article.content}`
           )).join('\n\n'),
         },
-      ])
+      ]))
       const parsed = resultSchema.parse(response.parsed)
       if (parsed.articles.length !== batch.length) throw new Error('News summary count did not match batch size')
       results.push(...parsed.articles)
       const usage = response.raw?.usage_metadata || response.raw?.response_metadata?.tokenUsage
-      console.log('[news] token usage:', usage || 'unavailable')
+      logger.info('News AI batch completed', { usage })
     } catch (error) {
-      console.error('News AI batch failed:', error.message)
+      logger.error('News AI batch failed', { errorName: error.name })
       results.push(...batch.map(() => ({
         category: 'Other',
         summary: 'The article could not be summarized at this time.',
