@@ -11,7 +11,7 @@ export function aiUsageLimit(req, res, next) {
     return next()
   }
 
-  if (current.count >= env.OPENAI_DAILY_CALL_LIMIT) {
+  if (current.count >= env.GEMINI_DAILY_CALL_LIMIT) {
     return next(new ApiError(429, 'Daily AI usage limit reached. Try again tomorrow.'))
   }
 

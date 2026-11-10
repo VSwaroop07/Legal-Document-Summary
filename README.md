@@ -27,6 +27,6 @@ GET http://localhost:5000/api/documents/:id/search?q=search+topic
 Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
-Uploaded document chunks are embedded with the configured OpenAI embedding
-model and searched through the Atlas Vector Search index
+Uploaded document chunks are embedded with the configured Google Gemini embedding
+model (`text-embedding-004`, 768 dimensions) and searched through the Atlas Vector Search index
 `chunk_vector_index`.

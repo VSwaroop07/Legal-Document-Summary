@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@langchain/openai', () => ({
-  ChatOpenAI: class {
+vi.mock('@langchain/google-genai', () => ({
+  ChatGoogleGenerativeAI: class {
     withStructuredOutput() {
       return {
         invoke: vi.fn().mockResolvedValue({
@@ -18,11 +18,19 @@ vi.mock('@langchain/openai', () => ({
       }
     }
   },
+  GoogleGenerativeAIEmbeddings: class {
+    embedQuery() {
+      return Promise.resolve(new Array(768).fill(0.1))
+    }
+    embedDocuments(texts) {
+      return Promise.resolve(texts.map(() => new Array(768).fill(0.1)))
+    }
+  },
 }))
 
 const { explainText } = await import('../src/services/explainService.js')
 
-describe('mocked OpenAI services', () => {
+describe('mocked Gemini AI services', () => {
   it('returns validated explanations without calling a real provider', async () => {
     const result = await explainText({ type: 'document', text: 'The court considered a claim.' })
     expect(result.whatHappened).toBe('A court considered a claim.')

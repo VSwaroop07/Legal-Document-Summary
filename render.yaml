@@ -19,17 +19,17 @@ services:
         value: 7d
       - key: CLIENT_URL
         sync: false
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
-      - key: OPENAI_CHAT_MODEL
-        sync: false
-      - key: OPENAI_EMBEDDING_MODEL
-        sync: false
+      - key: GEMINI_CHAT_MODEL
+        value: gemini-1.5-flash
+      - key: GEMINI_EMBEDDING_MODEL
+        value: text-embedding-004
       - key: NEWS_API_KEY
         sync: false
       - key: NEWS_JOB_ENABLED
         value: "true"
-      - key: OPENAI_DAILY_CALL_LIMIT
+      - key: GEMINI_DAILY_CALL_LIMIT
         value: "20"
-      - key: OPENAI_TIMEOUT_MS
+      - key: GEMINI_TIMEOUT_MS
         value: "30000"

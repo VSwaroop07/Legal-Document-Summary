@@ -1,17 +1,11 @@
-import { ChatOpenAI } from '@langchain/openai'
+import { createGeminiChatModel } from '../config/gemini.js'
 import { z } from 'zod'
-import { env } from '../config/env.js'
 import { searchChunks } from './vectorSearchService.js'
 import { ApiError } from '../utils/ApiError.js'
 import { invokeAi } from '../utils/ai.js'
 import { logger } from '../utils/logger.js'
 
-const model = new ChatOpenAI({
-  apiKey: env.OPENAI_API_KEY,
-  model: env.OPENAI_CHAT_MODEL,
-  temperature: 0,
-  timeout: env.OPENAI_TIMEOUT_MS,
-})
+const model = createGeminiChatModel({ temperature: 0 })
 
 const rewriteSchema = z.object({
   standaloneQuestion: z.string().min(1),

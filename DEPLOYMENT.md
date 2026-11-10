@@ -19,9 +19,10 @@ This project deploys the Express API to Render, the React client to Vercel, and 
    `mongodb+srv://<user>:<password>@<cluster>/<database>?retryWrites=true&w=majority`
 5. In the production database, open the `chunks` collection and create Atlas Vector Search index `chunk_vector_index`:
    - Path: `embedding`
-   - Dimensions: `1536`
+   - Dimensions: `768` (Google Gemini `text-embedding-004`)
    - Similarity: `cosine`
    - Filter fields: `user`, `document`
+   - Note: If migrating from OpenAI (1536 dims), re-create the index definition with 768 dimensions and run `npm run migrate:embeddings --prefix server`.
 6. Do not use a local/test database URI in Render.
 
 ## 3. Deploy the server to Render
@@ -43,13 +44,13 @@ Set these environment variables in Render:
 | `JWT_SECRET` | Long random secret |
 | `JWT_EXPIRES_IN` | `7d` |
 | `CLIENT_URL` | Exact Vercel client URL, including `https://` |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `OPENAI_CHAT_MODEL` | Production chat model name |
-| `OPENAI_EMBEDDING_MODEL` | Production embedding model name |
+| `GEMINI_API_KEY` | Google Gemini API key (from https://aistudio.google.com/apikey) |
+| `GEMINI_CHAT_MODEL` | `gemini-1.5-flash` |
+| `GEMINI_EMBEDDING_MODEL` | `text-embedding-004` |
 | `NEWS_API_KEY` | News API key |
 | `NEWS_JOB_ENABLED` | `true` for scheduled news ingestion |
-| `OPENAI_DAILY_CALL_LIMIT` | Daily per-user cap, for example `20` |
-| `OPENAI_TIMEOUT_MS` | AI request timeout in milliseconds, for example `30000` |
+| `GEMINI_DAILY_CALL_LIMIT` | Daily per-user cap, for example `20` |
+| `GEMINI_TIMEOUT_MS` | AI request timeout in milliseconds, for example `30000` |
 
 After deployment, open `https://<render-service>.onrender.com/api/health`. It must return the JSON health response.
 
@@ -86,5 +87,5 @@ The client uses `VITE_API_URL` for its single Axios API client. Redeploy after c
 - Render free web services sleep after inactivity. The first request after sleeping can be slow; wait for the service to wake before judging it unhealthy.
 - Uploaded PDFs are held in Multer memory storage and are not written to disk. Files are limited to 15 MB and are lost after processing.
 - The server does not depend on persistent local uploads. Store only database records and generated data in Atlas.
-- OpenAI usage is capped per user by `OPENAI_DAILY_CALL_LIMIT`; keep the value modest for a demo.
+- Gemini usage is capped per user by `GEMINI_DAILY_CALL_LIMIT`; keep the value modest for a demo.
 - News ingestion is controlled by `NEWS_JOB_ENABLED` and the scheduled job. Set it to `false` when you do not want scheduled API/LLM usage.

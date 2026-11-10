@@ -1,26 +1,29 @@
-import { OpenAIEmbeddings } from '@langchain/openai'
-import { env } from '../config/env.js'
+import { createGeminiEmbeddings } from '../config/gemini.js'
 import { invokeAi } from '../utils/ai.js'
 import { ApiError } from '../utils/ApiError.js'
 
+export const EMBEDDING_DIMENSIONS = 768
 const BATCH_SIZE = 50
 const MAX_RETRIES = 3
 
-const embeddings = new OpenAIEmbeddings({
-  apiKey: env.OPENAI_API_KEY,
-  model: env.OPENAI_EMBEDDING_MODEL,
-  timeout: env.OPENAI_TIMEOUT_MS,
-})
+const embeddings = createGeminiEmbeddings()
 
 export function isRateLimitError(error) {
   if (!error) return false
   const status = error.statusCode || error.status || error.response?.status
   const causeStatus = error.cause?.statusCode || error.cause?.status || error.cause?.response?.status
   const code = error.code || error.error?.code || error.cause?.code || error.cause?.error?.code
+  const message = String(error.message || error.cause?.message || '').toLowerCase()
 
-  return status === 429
-    || causeStatus === 429
-    || code === 'rate_limit_exceeded'
+  return (
+    status === 429 ||
+    causeStatus === 429 ||
+    code === 'rate_limit_exceeded' ||
+    message.includes('resource_exhausted') ||
+    message.includes('quota') ||
+    message.includes('rate limit') ||
+    message.includes('too many requests')
+  )
 }
 
 function wait(milliseconds) {

@@ -1,6 +1,5 @@
-import { ChatOpenAI } from '@langchain/openai'
+import { createGeminiChatModel } from '../config/gemini.js'
 import { z } from 'zod'
-import { env } from '../config/env.js'
 import { invokeAi } from '../utils/ai.js'
 import { logger } from '../utils/logger.js'
 
@@ -25,12 +24,7 @@ const resultSchema = z.object({
   })),
 })
 
-const model = new ChatOpenAI({
-  apiKey: env.OPENAI_API_KEY,
-  model: env.OPENAI_CHAT_MODEL,
-  temperature: 0,
-  timeout: env.OPENAI_TIMEOUT_MS,
-})
+const model = createGeminiChatModel({ temperature: 0 })
 
 export async function summarizeNewsArticles(articles, batchSize = 5) {
   const results = []

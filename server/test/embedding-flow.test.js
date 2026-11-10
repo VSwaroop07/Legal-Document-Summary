@@ -2,15 +2,15 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 let mockEmbedDocuments = vi.fn()
 
-vi.mock('@langchain/openai', () => {
+vi.mock('@langchain/google-genai', () => {
   return {
-    OpenAIEmbeddings: class {
+    GoogleGenerativeAIEmbeddings: class {
       constructor() {
         this.embedDocuments = (...args) => mockEmbedDocuments(...args)
-        this.embedQuery = vi.fn().mockResolvedValue([0.1, 0.2])
+        this.embedQuery = vi.fn().mockResolvedValue(new Array(768).fill(0.1))
       }
     },
-    ChatOpenAI: class {
+    ChatGoogleGenerativeAI: class {
       withStructuredOutput() {
         return {
           invoke: vi.fn(),
@@ -20,41 +20,42 @@ vi.mock('@langchain/openai', () => {
   }
 })
 
-describe('embeddingService retry and error handling flow', () => {
+describe('embeddingService retry and error handling flow (Gemini)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('successfully returns vectors on a normal embedding request', async () => {
-    mockEmbedDocuments.mockResolvedValueOnce([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+  it('successfully returns 768-dim vectors on a normal embedding request', async () => {
+    const vectorSample = new Array(768).fill(0.05)
+    mockEmbedDocuments.mockResolvedValueOnce([vectorSample, vectorSample])
     const { embedTexts } = await import('../src/services/embeddingService.js')
 
     const vectors = await embedTexts(['Chunk 1 text', 'Chunk 2 text'])
-    expect(vectors).toEqual([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+    expect(vectors).toEqual([vectorSample, vectorSample])
+    expect(vectors[0]).toHaveLength(768)
     expect(mockEmbedDocuments).toHaveBeenCalledTimes(1)
   })
 
-  it('retries on simulated OpenAI 429 and succeeds on subsequent attempt', async () => {
-    const rateLimitError = new Error('Rate limit reached')
+  it('retries on simulated Gemini 429 / RESOURCE_EXHAUSTED and succeeds on subsequent attempt', async () => {
+    const rateLimitError = new Error('Resource has been exhausted (e.g. check quota)')
     rateLimitError.status = 429
 
-    // Fail first call with 429, succeed second call with vectors
+    const vectorSample = new Array(768).fill(0.05)
     mockEmbedDocuments
       .mockRejectedValueOnce(rateLimitError)
-      .mockResolvedValueOnce([[0.7, 0.8, 0.9]])
+      .mockResolvedValueOnce([vectorSample])
 
     const { embedTexts } = await import('../src/services/embeddingService.js')
     const vectors = await embedTexts(['Chunk needing retry'])
 
-    expect(vectors).toEqual([[0.7, 0.8, 0.9]])
+    expect(vectors).toEqual([vectorSample])
     expect(mockEmbedDocuments).toHaveBeenCalledTimes(2)
   })
 
   it('exhausts retries on persistent 429 and throws ApiError(429) with friendly message', async () => {
-    const rateLimitError = new Error('Rate limit reached')
+    const rateLimitError = new Error('RESOURCE_EXHAUSTED: rate limit exceeded')
     rateLimitError.status = 429
 
-    // Always reject with 429
     mockEmbedDocuments.mockRejectedValue(rateLimitError)
 
     const { embedTexts } = await import('../src/services/embeddingService.js')
@@ -66,10 +67,9 @@ describe('embeddingService retry and error handling flow', () => {
     })
   })
 
-  it('does NOT retry permanent errors such as 401 invalid API key', async () => {
-    const authError = new Error('Incorrect API key provided')
-    authError.status = 401
-    authError.code = 'invalid_api_key'
+  it('does NOT retry permanent errors such as 400 API_KEY_INVALID', async () => {
+    const authError = new Error('API_KEY_INVALID: API key not valid. Please pass a valid API key.')
+    authError.status = 400
 
     mockEmbedDocuments.mockRejectedValue(authError)
 
@@ -80,7 +80,6 @@ describe('embeddingService retry and error handling flow', () => {
       message: 'The AI service is not configured correctly.',
     })
 
-    // Permanent errors should not be retried multiple times
     expect(mockEmbedDocuments).toHaveBeenCalledTimes(1)
   })
 })
