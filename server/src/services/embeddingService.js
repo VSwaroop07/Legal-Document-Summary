@@ -1,6 +1,7 @@
 import { createGeminiEmbeddings } from '../config/gemini.js'
 import { invokeAi } from '../utils/ai.js'
 import { ApiError } from '../utils/ApiError.js'
+import { env } from '../config/env.js'
 
 export const EMBEDDING_DIMENSIONS = 768
 const BATCH_SIZE = 50
@@ -58,7 +59,18 @@ function getRetryDelay(error, attempt) {
 async function embedBatchWithRetry(texts) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     try {
-      return await invokeAi('document embeddings', () => embeddings.embedDocuments(texts))
+      const batchVectors = await invokeAi('document embeddings', () => embeddings.embedDocuments(texts))
+      if (
+        !Array.isArray(batchVectors) ||
+        batchVectors.length !== texts.length ||
+        batchVectors.some((v) => !Array.isArray(v) || v.length === 0)
+      ) {
+        throw new ApiError(
+          502,
+          `The AI embedding service returned empty or incomplete vectors. Please verify GEMINI_EMBEDDING_MODEL (${env.GEMINI_EMBEDDING_MODEL}) is supported.`,
+        )
+      }
+      return batchVectors
     } catch (error) {
       if (!isRateLimitError(error) || attempt === MAX_RETRIES) {
         if (isRateLimitError(error)) {
