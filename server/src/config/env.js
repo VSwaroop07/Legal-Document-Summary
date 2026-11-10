@@ -9,7 +9,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().min(1),
   CLIENT_URL: z.string().url(),
   GEMINI_API_KEY: z.string().min(1),
-  GEMINI_CHAT_MODEL: z.string().min(1).default('gemini-flash-latest'),
+  GEMINI_CHAT_MODEL: z.string().min(1).default('gemini-flash-lite-latest'),
   GEMINI_EMBEDDING_MODEL: z.string().min(1).default('gemini-embedding-001'),
   NEWS_API_KEY: z.string().min(1),
   NEWS_JOB_ENABLED: z.preprocess(

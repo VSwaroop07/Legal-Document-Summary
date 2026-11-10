@@ -6,7 +6,7 @@ export function createGeminiChatModel(options = {}) {
     apiKey: env.GEMINI_API_KEY,
     model: env.GEMINI_CHAT_MODEL,
     temperature: options.temperature ?? 0,
-    maxRetries: 0,
+    maxRetries: options.maxRetries ?? 2,
     ...options,
   })
 }
