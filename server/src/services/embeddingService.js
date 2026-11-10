@@ -1,6 +1,7 @@
 import { OpenAIEmbeddings } from '@langchain/openai'
 import { env } from '../config/env.js'
 import { invokeAi } from '../utils/ai.js'
+import { ApiError } from '../utils/ApiError.js'
 
 const BATCH_SIZE = 50
 const MAX_RETRIES = 3
@@ -11,15 +12,44 @@ const embeddings = new OpenAIEmbeddings({
   timeout: env.OPENAI_TIMEOUT_MS,
 })
 
-function isRateLimitError(error) {
-  return error?.status === 429
-    || error?.statusCode === 429
-    || error?.response?.status === 429
-    || error?.code === 'rate_limit_exceeded'
+export function isRateLimitError(error) {
+  if (!error) return false
+  const status = error.statusCode || error.status || error.response?.status
+  const causeStatus = error.cause?.statusCode || error.cause?.status || error.cause?.response?.status
+  const code = error.code || error.error?.code || error.cause?.code || error.cause?.error?.code
+
+  return status === 429
+    || causeStatus === 429
+    || code === 'rate_limit_exceeded'
 }
 
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+function getRetryDelay(error, attempt) {
+  const retryAfterHeader = error?.headers?.['retry-after']
+    || error?.response?.headers?.['retry-after']
+    || error?.cause?.headers?.['retry-after']
+    || error?.cause?.response?.headers?.['retry-after']
+    || error?.retryAfter
+    || error?.cause?.retryAfter
+
+  if (retryAfterHeader) {
+    const seconds = Number(retryAfterHeader)
+    if (!Number.isNaN(seconds) && seconds > 0) {
+      return Math.min(seconds * 1000, 15000)
+    }
+    const dateMs = Date.parse(retryAfterHeader)
+    if (!Number.isNaN(dateMs)) {
+      const diff = dateMs - Date.now()
+      if (diff > 0) {
+        return Math.min(diff, 15000)
+      }
+    }
+  }
+
+  return 2 ** attempt * 1000
 }
 
 async function embedBatchWithRetry(texts) {
@@ -28,14 +58,24 @@ async function embedBatchWithRetry(texts) {
       return await invokeAi('document embeddings', () => embeddings.embedDocuments(texts))
     } catch (error) {
       if (!isRateLimitError(error) || attempt === MAX_RETRIES) {
+        if (isRateLimitError(error)) {
+          throw new ApiError(
+            429,
+            'The AI service is currently busy due to request limits. Please wait a moment and try again.',
+            { cause: error },
+          )
+        }
         throw error
       }
 
-      await wait(2 ** attempt * 1000)
+      await wait(getRetryDelay(error, attempt))
     }
   }
 
-  throw new Error('Embedding request failed after retries')
+  throw new ApiError(
+    429,
+    'The AI service is currently busy due to request limits. Please wait a moment and try again.',
+  )
 }
 
 export async function embedTexts(texts) {

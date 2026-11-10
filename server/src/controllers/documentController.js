@@ -46,8 +46,14 @@ export async function uploadDocument(req, res) {
     try {
       vectors = await embedTexts(chunks.map((chunk) => chunk.text))
     } catch (error) {
-      logger.error('Document embedding failed', { documentId: document._id.toString() })
-      throw new ApiError(502, 'Document embedding failed. Please try again.')
+      logger.error('Document embedding failed', {
+        documentId: document._id.toString(),
+        statusCode: error?.statusCode || error?.status,
+      })
+      if (error instanceof ApiError) {
+        throw error
+      }
+      throw new ApiError(502, 'Document embedding failed. Please try again.', { cause: error })
     }
 
     if (vectors.length !== chunks.length || vectors.some((vector) => !Array.isArray(vector) || vector.length === 0)) {

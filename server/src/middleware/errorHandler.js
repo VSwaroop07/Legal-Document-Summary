@@ -7,7 +7,7 @@ export function errorHandler(error, req, res, next) {
     return next(error)
   }
 
-  let statusCode = error.statusCode || 500
+  let statusCode = error.statusCode || error.status || 500
   let message = error.message || 'Internal server error'
 
   if (error instanceof multer.MulterError) {
@@ -27,7 +27,10 @@ export function errorHandler(error, req, res, next) {
     message = 'A record with the same unique value already exists'
   }
 
-  if (statusCode >= 500) {
+  if (statusCode === 429 || error?.cause?.status === 429 || error?.cause?.statusCode === 429) {
+    statusCode = 429
+    message = 'The AI service is currently busy due to request limits. Please wait a moment and try again.'
+  } else if (statusCode >= 500) {
     logger.error('Request failed', { statusCode, errorName: error.name })
     message = 'Internal server error'
   }
